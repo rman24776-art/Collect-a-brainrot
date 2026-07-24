@@ -1,1 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Collect a Brainrot!</title>
+  <style>
+    :root {
+      --bg: #0f1015;
+      --panel: #1a1c23;
+      --card: #252836;
+      --text: #f0f2f5;
+      --accent: #7289da;
+      --uncommon: #4caf50;
+      --rare: #2196f3;
+      --epic: #9c27b0;
+      --legendary: #ff9800;
+      --secret: #e91e63;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+
+    header { width: 100%; max-width: 900px; display: flex; justify-content: space-between; align-items: center; background: var(--panel); padding: 15px 25px; border-radius: 12px; border: 1px solid #333; margin-bottom: 20px; }
+    .stats { display: flex; gap: 20px; font-size: 1.2rem; font-weight: bold; }
+    .money { color: #4caf50; }
+    .cps { color: #00bcd4; }
+
+    .btn { background: #333; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .btn:hover { opacity: 0.85; transform: translateY(-2px); }
+    .btn-admin { background: #e91e63; }
+    .btn-buy { background: #4caf50; width: 100%; font-size: 1rem; padding: 12px; margin-top: 10px; }
+
+    /* Conveyor Area */
+    .section-box { width: 100%; max-width: 900px; background: var(--panel); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #333; }
+    h2 { margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 5px; }
+
+    .conveyor-belt {
+      position: relative;
+      background: linear-gradient(90deg, #111, #222, #111);
+      height: 220px;
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 2px dashed #444;
+    }
+
+    .conveyor-track {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,255,255,0.05) 40px, rgba(255,255,255,0.05) 80px);
+      animation: moveBelt 3s linear infinite;
+    }
+    @keyframes moveBelt { from { background-position: 0 0; } to { background-position: 80px 0; } }
+
+    /* Item Cards */
+    .brainrot-card {
+      position: relative;
+      z-index: 2;
+      background: var(--card);
+      border-radius: 10px;
+      padding: 15px;
+      width: 220px;
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      border: 3px solid #555;
+    }
+    .brainrot-card.uncommon { border-color: var(--uncommon); }
+    .brainrot-card.rare { border-color: var(--rare); }
+    .brainrot-card.epic { border-color: var(--epic); }
+    .brainrot-card.legendary { border-color: var(--legendary); }
+    .brainrot-card.secret { border-color: var(--secret); box-shadow: 0 0 20px var(--secret); }
+
+    .sprite-box {
+      width: 100px;
+      height: 100px;
+      margin: 0 auto 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3.5rem;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .badge.uncommon { background: var(--uncommon); color: #000; }
+    .badge.rare { background: var(--rare); color: #fff; }
+    .badge.epic { background: var(--epic); color: #fff; }
+    .badge.legendary { background: var(--legendary); color: #000; }
+    .badge.secret { background: var(--secret); color: #fff; animation: blink 1s infinite alternate; }
+
+    @keyframes blink { from { opacity: 0.7; } to { opacity: 1; } }
+
+    /* Grid Layouts */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
+    .inv-card { background: var(--card); padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #444; }
+    .inv-card .sprite-box { width: 60px; height: 60px; font-size: 2rem; }
+
+    /* Modal / Admin Panel */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    .modal-content {
+      background: var(--panel);
+      padding: 25px;
+      border-radius: 12px;
+      width: 400px;
+      max-width: 90%;
+      border: 2px solid var(--accent);
+    }
+    .modal-content input, .modal-content select {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #111;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="stats">
+      <div>Money: <span id="money-display" class="money">$10</span></div>
+      <div>Income: <span id="cps-display" class="cps">$0/s</span></div>
+    </div>
+    <button class="btn btn-admin" onclick="openAdmin()">Admin Panel</button>
+  </header>
+
+  <div class="section-box">
+    <h2>Conveyor Belt</h2>
+    <div class="conveyor-belt">
+      <div class="conveyor-track"></div>
+      <div id="conveyor-card" class="brainrot-card">
+        </div>
+    </div>
+  </div>
+
+  <div class="section-box">
+    <h2>Base Upgrades</h2>
+    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+      <button class="btn" id="upgrade-speed-btn" onclick="buyUpgrade('speed')">Faster Conveyor ($100)</button>
+      <button class="btn" id="upgrade-boost-btn" onclick="buyUpgrade('boost')">2x Income Multiplier ($500)</button>
+    </div>
+  </div>
+
+  <div class="section-box">
+    <h2>Backpack / Owned Brainrots (<span id="inv-count">0</span>)</h2>
+    <div class="grid" id="inventory-grid">
+      </div>
+  </div>
+
+  <div class="modal" id="admin-modal">
+    <div class="modal-content">
+      <h2>🛠️ Admin Panel</h2>
+      <label>Add Custom Money:</label>
+      <input type="number" id="admin-money-input" placeholder="Amount (e.g. 1000000)">
+      <button class="btn" onclick="adminAddMoney()" style="width: 100%; margin-bottom: 15px;">Add Money</button>
+
+      <label>Spawn Specific Brainrot:</label>
+      <select id="admin-brainrot-select"></select>
+      <button class="btn" onclick="adminSpawnBrainrot()" style="width: 100%; margin-bottom: 15px;">Spawn to Backpack</button>
+
+      <button class="btn" onclick="closeAdmin()" style="background: #555; width: 100%;">Close</button>
+    </div>
+  </div>
+
+  <script>
+    // Game Data & Config
+    const BRAINROTS = [
+      // Uncommon
+      { id: 'noobini', name: 'Noobini Codeini', rarity: 'uncommon', cps: 10, cost: 8, sprite: '🟢💻' },
+      { id: 'duck', name: 'Trippi Troppi Duck', rarity: 'uncommon', cps: 30, cost: 25, sprite: '🦆🌀' },
+      
+      // Rare
+      { id: 'sus', name: 'Sus Impostor Plush', rarity: 'rare', cps: 40, cost: 35, sprite: 'ඞ🧸' },
+      { id: 'phonk', name: 'Phonk Doge', rarity: 'rare', cps: 50, cost: 45, sprite: '🐕🕶️' },
+      
+      // Epic
+      { id: 'rizzler', name: 'Rizzler Banana', rarity: 'epic', cps: 100, cost: 120, sprite: '🍌😏' },
+      { id: 'tralala', name: 'Tralala Shark', rarity: 'epic', cps: 250, cost: 280, sprite: '🦈🎶' },
+      
+      // Legendary
+      { id: 'chad', name: 'Golden Chad Statue', rarity: 'legendary', cps: 1000, cost: 1500, sprite: '🗿✨' },
+      { id: 'pizza', name: 'Quantum Pizza Slice', rarity: 'legendary', cps: 3000, cost: 3500, sprite: '🍕⚛️' },
+      
+      // Secret
+      { id: 'ducky_ufo', name: 'Ducky UFO', rarity: 'secret', cps: 5000000, cost: 10000000, sprite: '🛸🦆' }
+    ];
+
+    const RARITY_CHANCES = {
+      uncommon: 60,
+      rare: 25,
+      epic: 10,
+      legendary: 4.9,
+      secret: 0.1
+    };
+
+    // State Variables
+    let money = 10;
+    let multiplier = 1;
+    let conveyorTimer = 5; // seconds per spawn
+    let inventory = [];
+    let currentItem = null;
+    let timerInterval = null;
+    let speedUpgradeCost = 100;
+    let boostUpgradeCost = 500;
+
+    // Helper: Format Big Numbers
+    function formatMoney(num) {
+      if (num >= 1e9) return '$' + (num / 1e9).toFixed(2) + 'B';
+      if (num >= 1e6) return '$' + (num / 1e6).toFixed(2) + 'M';
+      if (num >= 1e3) return '$' + (num / 1e3).toFixed(1) + 'K';
+      return '$' + Math.floor(num);
+    }
+
+    // Pick random rarity based on weights
+    function getRandomRarity() {
+      const rand = Math.random() * 100;
+      let cumulative = 0;
+      for (const [rarity, chance] of Object.entries(RARITY_CHANCES)) {
+        cumulative += chance;
+        if (rand <= cumulative) return rarity;
+      }
+      return 'uncommon';
+    }
+
+    // Spawn a new item onto the conveyor
+    function spawnConveyorItem() {
+      const rarity = getRandomRarity();
+      const possible = BRAINROTS.filter(b => b.rarity === rarity);
+      currentItem = possible[Math.floor(Math.random() * possible.length)];
+      renderConveyor();
+    }
+
+    function renderConveyor() {
+      const container = document.getElementById('conveyor-card');
+      container.className = `brainrot-card ${currentItem.rarity}`;
+      container.innerHTML = `
+        <span class="badge ${currentItem.rarity}">${currentItem.rarity}</span>
+        <div class="sprite-box">${currentItem.sprite}</div>
+        <h3>${currentItem.name}</h3>
+        <p style="margin: 5px 0; color: #00bcd4;">+${formatMoney(currentItem.cps)}/s</p>
+        <p style="color: #ffca28; font-weight: bold;">Price: ${formatMoney(currentItem.cost)}</p>
+        <button class="btn btn-buy" onclick="buyConveyorItem()">Buy Brainrot</button>
+      `;
+    }
+
+    function buyConveyorItem() {
+      if (!currentItem) return;
+      if (money >= currentItem.cost) {
+        money -= currentItem.cost;
+        inventory.push({...currentItem});
+        spawnConveyorItem();
+        updateUI();
+      } else {
+        alert("Not enough money!");
+      }
+    }
+
+    // Upgrades
+    function buyUpgrade(type) {
+      if (type === 'speed' && money >= speedUpgradeCost) {
+        money -= speedUpgradeCost;
+        conveyorTimer = Math.max(1, conveyorTimer - 1);
+        speedUpgradeCost = Math.floor(speedUpgradeCost * 2.5);
+        resetConveyorInterval();
+        alert("Conveyor speed increased!");
+      } else if (type === 'boost' && money >= boostUpgradeCost) {
+        money -= boostUpgradeCost;
+        multiplier *= 2;
+        boostUpgradeCost = Math.floor(boostUpgradeCost * 3);
+        alert("Income Multiplier doubled!");
+      }
+      updateUI();
+    }
+
+    function resetConveyorInterval() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(spawnConveyorItem, conveyorTimer * 1000);
+    }
+
+    // Passive Income Calculation
+    function calculateTotalCPS() {
+      const base = inventory.reduce((sum, item) => sum + item.cps, 0);
+      return base * multiplier;
+    }
+
+    // Main Game Loop (Per Second)
+    setInterval(() => {
+      const cps = calculateTotalCPS();
+      money += cps;
+      updateUI();
+    }, 1000);
+
+    function updateUI() {
+      document.getElementById('money-display').innerText = formatMoney(money);
+      document.getElementById('cps-display').innerText = formatMoney(calculateTotalCPS()) + '/s';
+      document.getElementById('inv-count').innerText = inventory.length;
+
+      document.getElementById('upgrade-speed-btn').innerText = `Faster Conveyor (${formatMoney(speedUpgradeCost)})`;
+      document.getElementById('upgrade-boost-btn').innerText = `${multiplier * 2}x Income Multiplier (${formatMoney(boostUpgradeCost)})`;
+
+      renderInventory();
+    }
+
+    function renderInventory() {
+      const grid = document.getElementById('inventory-grid');
+      grid.innerHTML = '';
+      
+      inventory.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = `inv-card`;
+        card.style.borderColor = `var(--${item.rarity})`;
+        card.innerHTML = `
+          <div class="sprite-box">${item.sprite}</div>
+          <p style="font-weight: bold; font-size: 0.9rem;">${item.name}</p>
+          <span class="badge ${item.rarity}">${item.rarity}</span>
+          <p style="color: #00bcd4; font-size: 0.8rem;">+$${item.cps * multiplier}/s</p>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    // Admin Panel Logic
+    function openAdmin() {
+      const pass = prompt("Enter Admin Passcode:");
+      if (pass === "676713") {
+        document.getElementById('admin-modal').style.display = 'flex';
+        populateAdminSelect();
+      } else {
+        alert("Incorrect Admin Passcode!");
+      }
+    }
+
+    function closeAdmin() {
+      document.getElementById('admin-modal').style.display = 'none';
+    }
+
+    function populateAdminSelect() {
+      const select = document.getElementById('admin-brainrot-select');
+      select.innerHTML = '';
+      BRAINROTS.forEach((item, index) => {
+        const opt = document.createElement('option');
+        opt.value = index;
+        opt.innerText = `[${item.rarity.toUpperCase()}] ${item.name}`;
+        select.appendChild(opt);
+      });
+    }
+
+    function adminAddMoney() {
+      const val = parseFloat(document.getElementById('admin-money-input').value);
+      if (!isNaN(val)) {
+        money += val;
+        updateUI();
+        alert(`Added ${formatMoney(val)} money!`);
+      }
+    }
+
+    function adminSpawnBrainrot() {
+      const idx = document.getElementById('admin-brainrot-select').value;
+      if (idx !== "") {
+        inventory.push({...BRAINROTS[idx]});
+        updateUI();
+        alert(`Spawned ${BRAINROTS[idx].name} to backpack!`);
+      }
+    }
+
+    // Init
+    spawnConveyorItem();
+    resetConveyorInterval();
+    updateUI();
+  </script>
+</body>
+</html>
 
